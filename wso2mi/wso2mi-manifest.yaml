@@ -1,0 +1,113 @@
+# wso2mi-deployment-car.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wso2mi-deployment
+  labels:
+    app: wso2mi
+spec:
+  replicas: 1 # Initial replica count, HPA will manage this
+  selector:
+    matchLabels:
+      app: wso2mi
+  template:
+    metadata:
+      labels:
+        app: wso2mi
+    spec:
+      containers:
+      - name: wso2mi-container
+        # IMPORTANT: Replace with the custom image you built
+        image: wso2mi-w-cars:latest
+        imagePullPolicy: IfNotPresent # Or Always, if you push to a remote registry and update frequently
+        ports:
+        - containerPort: 8290 # HTTP transport
+        - containerPort: 8253 # HTTPS transport
+        - containerPort: 9164 # Management HTTPS port
+        env:
+        - name: BACKEND_DELAY # Environment variable to control latency in your API
+          value: "5000" # Default latency, your FastAPI app will update this
+        # Define resource requests and limits for HPA to work effectively
+        resources:
+          requests:
+            memory: "2Gi" # Adjust as needed
+            cpu: "1"     # Adjust as needed
+          limits:
+            memory: "2Gi"   # Adjust as needed
+            cpu: "1"        # Adjust as needed
+        # Readiness and Liveness probes for MI
+        # Ensure the API context /latencyPassThrough/ is correct
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9201
+          initialDelaySeconds: 60 # MI + CAR deployment can take time
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 10 # Allow more failures during initial CAR deployment
+        livenessProbe:
+          tcpSocket:
+            port: 8290
+          initialDelaySeconds: 120
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 5
+---
+# wso2mi-service-car.yaml (This can remain the same as before)
+apiVersion: v1
+kind: Service
+metadata:
+  name: wso2mi-service
+  labels:
+    app: wso2mi
+spec:
+  selector:
+    app: wso2mi # Must match the labels of the wso2mi Deployment's pods
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8290
+    targetPort: 8290
+  - name: https
+    protocol: TCP
+    port: 8253
+    targetPort: 8253
+  type: LoadBalancer
+---
+# wso2mi-hpa-car.yaml (This can remain the same, just ensure it targets the correct deployment name)
+apiVersion: autoscaling/v2 # Use v2 for more features like multiple metrics
+kind: HorizontalPodAutoscaler
+metadata:
+  name: wso2mi-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: wso2mi-deployment # Must match the name of your MI Deployment
+  minReplicas: 1
+  maxReplicas: 2 # Maximum number of MI pods
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50 # Target 50% CPU utilization before scaling up
+  # Optional: Behavior policies for scaling up/down gradually
+  # behavior:
+  #   scaleDown:
+  #     stabilizationWindowSeconds: 300 # Wait 5 minutes before scaling down
+  #     policies:
+  #     - type: Percent
+  #       value: 100
+  #       periodSeconds: 15
+  #   scaleUp:
+  #     stabilizationWindowSeconds: 0
+  #     policies:
+  #     - type: Percent
+  #       value: 100
+  #       periodSeconds: 15
+  #     - type: Pods
+  #       value: 4 # Add max 4 pods at a time
+  #       periodSeconds: 15
+  #     selectPolicy: Max # Add the maximum of the two policies
