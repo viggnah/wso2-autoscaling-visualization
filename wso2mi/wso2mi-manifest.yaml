@@ -74,40 +74,51 @@ spec:
     targetPort: 8253
   type: LoadBalancer
 ---
-# wso2mi-hpa-car.yaml (This can remain the same, just ensure it targets the correct deployment name)
-apiVersion: autoscaling/v2 # Use v2 for more features like multiple metrics
+# wso2mi-hpa-aggressive.yaml
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: wso2mi-hpa
+  name: wso2mi-hpa # Should match the existing HPA name to update it
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: wso2mi-deployment # Must match the name of your MI Deployment
   minReplicas: 1
-  maxReplicas: 2 # Maximum number of MI pods
+  maxReplicas: 5 # Increased max replicas for a better scaling demo range
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 50 # Target 50% CPU utilization before scaling up
-  # Optional: Behavior policies for scaling up/down gradually
-  # behavior:
-  #   scaleDown:
-  #     stabilizationWindowSeconds: 300 # Wait 5 minutes before scaling down
-  #     policies:
-  #     - type: Percent
-  #       value: 100
-  #       periodSeconds: 15
-  #   scaleUp:
-  #     stabilizationWindowSeconds: 0
-  #     policies:
-  #     - type: Percent
-  #       value: 100
-  #       periodSeconds: 15
-  #     - type: Pods
-  #       value: 4 # Add max 4 pods at a time
-  #       periodSeconds: 15
-  #     selectPolicy: Max # Add the maximum of the two policies
+        # Target 50% CPU utilization before scaling up.
+        # This value might need adjustment based on typical MI load.
+        averageUtilization: 50
+  behavior:
+    scaleDown:
+      # Stabilization window for scaling down.
+      # Shorter window means faster scale-down reaction.
+      # Default is 300 seconds (5 minutes).
+      stabilizationWindowSeconds: 90 # Reduced to 90 seconds (1.5 minutes)
+      policies:
+      # Allow scaling down by a larger number of pods or percentage more quickly.
+      - type: Pods
+        value: 2 # Allow removing up to 2 pods at a time during scale down
+        periodSeconds: 30 # Check every 30 seconds for scale down opportunities
+      - type: Percent
+        value: 50 # Allow removing up to 50% of current pods (respecting minReplicas)
+        periodSeconds: 60 # Check every 60 seconds
+      # selectPolicy: Max # Default is Max, meaning it will take the more aggressive policy
+    scaleUp:
+      # Stabilization window for scaling up.
+      # 0 means scale up as soon as metrics are met.
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent # Allow adding a significant percentage of pods
+        value: 100 # Allow doubling the number of pods (up to maxReplicas)
+        periodSeconds: 15 # Check every 15 seconds for scale up
+      - type: Pods # Also allow adding a fixed number of pods quickly
+        value: 3 # Allow adding up to 3 pods at a time
+        periodSeconds: 15
+      selectPolicy: Max # Take the action that adds more pods

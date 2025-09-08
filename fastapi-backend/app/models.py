@@ -41,3 +41,17 @@ class NextJSDeploymentConfig(BaseModel):
 class DeploymentResponse(BaseModel):
     message: str
     details: dict = {}
+
+class K6Stage(BaseModel):
+    duration: str = Field(..., example="1m", description="Duration of the stage (e.g., '30s', '1m', '1h')")
+    target: int = Field(..., ge=0, example=10, description="Target number of virtual users for this stage")
+
+class K6ConfigPayload(BaseModel):
+    target_url: str = Field(..., alias="targetURL", example="http://localhost:8290/echo", description="Target URL for the k6 test")
+    stages_json: str = Field(..., alias="stagesJSON", example='[{"duration": "1m", "target": 10}]', description="JSON string representing k6 stages array")
+    # We'll parse stages_json into List[K6Stage] in the endpoint or a utility function.
+
+class K6TestStatusResponse(BaseModel):
+    is_running: bool
+    message: str
+    pid: int | None = None # Process ID of the k6 test

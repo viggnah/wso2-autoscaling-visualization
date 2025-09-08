@@ -24,3 +24,27 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.btn-primary {
+  /*
+    Removed 'group' from this @apply directive.
+    'group' is a marker class and should be applied directly in the HTML/JSX
+    if its children use group-* variants.
+    Applying it here was causing the "unknown utility class: group" error.
+  */
+  @apply flex justify-center items-center border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-sky-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 ease-in-out;
+  /* Note: The 'group' class was removed from the @apply above. */
+}
+.btn-primary span {
+   /* This is correct: it relies on the parent button having the 'group' class */
+   @apply group-hover:scale-105 transition-transform duration-150;
+}
+
+.btn-danger {
+  /* Removed 'group' from this @apply directive as well */
+  @apply flex justify-center items-center border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 ease-in-out;
+}
+.btn-danger span {
+   /* This is correct: it relies on the parent button having the 'group' class */
+   @apply group-hover:scale-105 transition-transform duration-150;
+}
